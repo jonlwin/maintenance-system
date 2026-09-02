@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from io import BytesIO
 
 # Page Configuration
 st.set_page_config(page_title="Enterprise Maintenance & Fixed Asset Management System", page_icon="🛠️", layout="wide")
@@ -17,7 +18,15 @@ st.markdown('<p class="main-header">🛠️ Enterprise Maintenance & Fixed Asset
 st.markdown('<p class="sub-text">ဌာနဆိုင်ရာ ပစ္စည်းကိရိယာများ၊ ပုံသေပိုင်ပစ္စည်းများ (Fixed Assets) နှင့် ပြုပြင်ထိန်းသိမ်းမှု အချိန်ဇယားများ စီမံခန့်ခွဲမှုစနစ်</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Schema for Fixed Assets
+# Helper function to convert dataframe to Excel for download
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Report')
+    processed_data = output.getvalue()
+    return processed_data
+
+# Schema Definitions
 fixed_asset_schema = [
     'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
     'ပစ္စည်းအမျိုးအစား (Category)', 'စက်ပစ္စည်းကိရိယာများ', 'ပရိဘောဂပစ္စည်းများ', 
@@ -31,7 +40,6 @@ fixed_asset_schema = [
     'ရောင်းချ/ဖျက်သိမ်းရသည့် အကြောင်းအရင်း (Reason for Disposal)'
 ]
 
-# Schema for Equipment & Machinery Assets (Updated with Maintenance Dates)
 asset_schema = [
     'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
     'ပစ္စည်းအမျိုးအစား (Category)', 'လက်ရှိအခြေအနေ (Current Condition)', 'Asset Code', 
@@ -50,7 +58,7 @@ if 'schedules' not in st.session_state:
 if 'logs' not in st.session_state:
     st.session_state.logs = pd.DataFrame(columns=["Log_ID", "Schedule_ID", "Check_Date", "Technician", "Cost_MMK", "Remarks", "Status"])
 
-# Updated Departments and Categories options
+# Departments and Categories options
 dept_options = [
     "BOD", "Marketing (MKT)", "စာရင်းစစ်ဌာန (AUD)", "စီမံရေးရာဌာန (AMD)", 
     "ဘဏ္ဏာရေးဌာန (FND)", "ဝန်ထမ်းရေးရာဌာန (HRD)", "ဝယ်ယူရေးဌာန (PRD)", 
@@ -74,7 +82,8 @@ menu = st.sidebar.selectbox("Navigation Menu", [
     "📦 Assets Management", 
     "🏛️ Fixed Assets Register", 
     "📅 Maintenance Schedules", 
-    "📝 Maintenance Logs"
+    "📝 Maintenance Logs",
+    "📥 Export Reports (Excel)"
 ])
 
 if menu == "📊 Dashboard":
@@ -101,19 +110,16 @@ if menu == "📊 Dashboard":
         st.dataframe(st.session_state.fixed_assets[['Asset Code', 'ပစ္စည်းအမည် (Asset Name)', 'Deparment (ဌာန)', 'ပစ္စည်းအမျိုးအစား (Category)', 'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)']], use_container_width=True)
     else:
         st.info("ပုံသေပိုင်ပစ္စည်း မှတ်တမ်းများ မရှိသေးပါ။")
-        
-    st.subheader("⏰ Upcoming Maintenance Schedules")
-    if not st.session_state.schedules.empty:
-        st.dataframe(st.session_state.schedules, use_container_width=True)
-    else:
-        st.info("ပြုပြင်ရန် အချိန်ဇယားများ မရှိသေးပါ။")
 
 elif menu == "📦 Assets Management":
     st.subheader("📦 Equipment & Machinery Assets Management")
     if not st.session_state.assets.empty:
         st.dataframe(st.session_state.assets, use_container_width=True)
+        # Download Excel Button for Assets
+        excel_data = to_excel(st.session_state.assets)
+        st.download_button(label="📥 Download Equipment Assets as Excel", data=excel_data, file_name="equipment_assets_report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.info("စက်ပစ္စည်းကိရိယာ မှတ်တမ်းများ မရှိသေးပါ။ (အောက်ပါပုံစံမှတစ်ဆင့် အသစ်ထည့်သွင်းနိုင်ပါသည်)")
+        st.info("စက်ပစ္စည်းကိရိယာ မှတ်တမ်းများ မရှိသေးပါ။")
     
     with st.expander("➕ Add New Equipment & Machinery Asset"):
         with st.form("equipment_asset_form"):
@@ -140,6 +146,9 @@ elif menu == "🏛️ Fixed Assets Register":
     st.subheader("🏛️ Fixed Assets Register (ပုံသေပိုင်ပစ္စည်းများ စာရင်း)")
     if not st.session_state.fixed_assets.empty:
         st.dataframe(st.session_state.fixed_assets, use_container_width=True)
+        # Download Excel Button for Fixed Assets
+        excel_data = to_excel(st.session_state.fixed_assets)
+        st.download_button(label="📥 Download Fixed Assets as Excel", data=excel_data, file_name="fixed_assets_report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.info("ယခုလက်တလော မှတ်တမ်းတင်ထားသော ပုံသေပိုင်ပစ္စည်း ဒေတာများ မရှိသေးပါ။")
     
@@ -175,6 +184,8 @@ elif menu == "📅 Maintenance Schedules":
     st.subheader("📅 Maintenance Schedules (ပြုပြင်ရန် အချိန်ဇယားများ)")
     if not st.session_state.schedules.empty:
         st.dataframe(st.session_state.schedules, use_container_width=True)
+        excel_data = to_excel(st.session_state.schedules)
+        st.download_button(label="📥 Download Schedules as Excel", data=excel_data, file_name="maintenance_schedules.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.info("အချိန်ဇယားများ မရှိသေးပါ။")
     
@@ -199,6 +210,8 @@ elif menu == "📝 Maintenance Logs":
     st.subheader("📝 Maintenance Execution Logs (ပြုပြင်ပြီးစီးမှု မှတ်တမ်းများ)")
     if not st.session_state.logs.empty:
         st.dataframe(st.session_state.logs, use_container_width=True)
+        excel_data = to_excel(st.session_state.logs)
+        st.download_button(label="📥 Download Logs as Excel", data=excel_data, file_name="maintenance_logs.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.info("ပြုပြင်ပြီးစီးမှု မှတ်တမ်းများ မရှိသေးပါ။")
     
@@ -217,3 +230,29 @@ elif menu == "📝 Maintenance Logs":
                                        columns=st.session_state.logs.columns)
                 st.session_state.logs = pd.concat([st.session_state.logs, new_log], ignore_index=True)
                 st.success("မှတ်တမ်း အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!")
+
+elif menu == "📥 Export Reports (Excel)":
+    st.subheader("📥 Comprehensive Report Export (Excel)")
+    st.markdown("စနစ်အတွင်းရှိ မှတ်တမ်းအားလုံးကို ဌာနအလိုက် သို့မဟုတ် အချက်အလက်အလိုက် Excel Report အဖြစ် Download ဆွဲထုတ်နိုင်ပါသည်။")
+    
+    report_type = st.selectbox("Select Report Type", ["Fixed Assets Register", "Equipment Assets", "Maintenance Schedules", "Maintenance Logs"])
+    
+    if report_type == "Fixed Assets Register":
+        df_export = st.session_state.fixed_assets
+        filename = "Fixed_Assets_Report.xlsx"
+    elif report_type == "Equipment Assets":
+        df_export = st.session_state.assets
+        filename = "Equipment_Assets_Report.xlsx"
+    elif report_type == "Maintenance Schedules":
+        df_export = st.session_state.schedules
+        filename = "Maintenance_Schedules_Report.xlsx"
+    else:
+        df_export = st.session_state.logs
+        filename = "Maintenance_Logs_Report.xlsx"
+        
+    if not df_export.empty:
+        st.dataframe(df_export, use_container_width=True)
+        excel_file = to_excel(df_export)
+        st.download_button(label=f"📥 Download {report_type} Excel File", data=excel_file, file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.warning(f"'{report_type}' တွင် ထည့်သွင်းထားသော ဒေတာများ မရှိသေးပါ။")
