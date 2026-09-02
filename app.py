@@ -5,7 +5,7 @@ from datetime import datetime
 # Page Configuration
 st.set_page_config(page_title="Enterprise Maintenance & Fixed Asset Management System", page_icon="🛠️", layout="wide")
 
-# Custom Styling for Professional Look
+# Custom Styling
 st.markdown("""
     <style>
     .main-header {font-size: 28px; font-weight: bold; color: #1E3A8A;}
@@ -17,12 +17,25 @@ st.markdown('<p class="main-header">🛠️ Enterprise Maintenance & Fixed Asset
 st.markdown('<p class="sub-text">ဌာနဆိုင်ရာ ပစ္စည်းကိရိယာများ၊ ပုံသေပိုင်ပစ္စည်းများ (Fixed Assets) နှင့် ပြုပြင်ထိန်းသိမ်းမှု အချိန်ဇယားများ စီမံခန့်ခွဲမှုစနစ်</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Initialize Empty DataFrames
+# Initialize Empty DataFrames with exact columns from HTY-20.xlsx
 if 'assets' not in st.session_state:
-    st.session_state.assets = pd.DataFrame(columns=["Asset_ID", "Asset_Name", "Category", "Department", "Location", "Purchase_Date", "Status"])
+    st.session_state.assets = pd.DataFrame(columns=[
+        "Asset_ID", "Asset_Name", "Category", "Department", "Location", "Purchase_Date", "Status"
+    ])
 
 if 'fixed_assets' not in st.session_state:
-    st.session_state.fixed_assets = pd.DataFrame(columns=["Asset_Code", "Item_Name", "Asset_Category", "Department", "Location", "Original_Value", "Condition"])
+    st.session_state.fixed_assets = pd.DataFrame(columns=[
+        'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
+        'ပစ္စည်းအမျိုးအစား (Category)', 'စက်ပစ္စည်းကိရိယာများ', 'ပရိဘောဂပစ္စည်းများ', 
+        'ကွန်ပျူတာနှင့် ဆက်စပ်ပစ္စည်းများ', 'လျှပ်စစ်ပစ္စည်းများ', 'အီလက်ထရောနစ်ပစ္စည်းများ', 
+        'ရုံးသုံးပစ္စည်းများ', 'လက်ရှိအခြေအနေ (Current Condition)', 'Fixed Asset Code', 
+        'Fixed Asset NEW Code', 'photo', 'ဝယ်ယူသည့်နေ့ (Acquisition Date) ', 
+        'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)', 'အသုံးဝင်မည့်နှစ် (Useful Life in Years)', 
+        'ကျန်ရှိမည့်တန်ဖိုး ($) (Salvage Value)', 'စုစုပေါင်း တန်ဖိုးလျော့ကျမှု ($) (Accumulated Depreciation) ', 
+        'လက်ရှိတန်ဖိုး ($) (Net Book Value)', 'နောက်ဆုံးပြုပြင်ခဲ့သည့်နေ့ (Last Maintenance Date)', 
+        'ရောင်းချ/ဖျက်သိမ်းသည့်နေ့ (Disposal Date)', 'ရောင်းချ/ဖျက်သိမ်းမှု တန်ဖိုး ($) (Disposal Value)', 
+        'ရောင်းချ/ဖျက်သိမ်းရသည့် အကြောင်းအရင်း (Reason for Disposal)'
+    ])
 
 if 'schedules' not in st.session_state:
     st.session_state.schedules = pd.DataFrame(columns=["Schedule_ID", "Asset_ID", "Task_Description", "Frequency", "Last_Date", "Next_Due_Date", "Department", "Assignee"])
@@ -31,7 +44,7 @@ if 'logs' not in st.session_state:
     st.session_state.logs = pd.DataFrame(columns=["Log_ID", "Schedule_ID", "Check_Date", "Technician", "Cost_MMK", "Remarks", "Status"])
 
 # Departments list
-dept_options = ["Office", "M&E", "IT", "Admin Asst 1", "Admin Asst 2", "Admin Executive"]
+dept_options = ["Office", "M&E", "IT", "Admin Asst 1", "Admin Asst 2", "Admin Executive", "စီမံရေးရာဌာန (AMD)"]
 
 # Sidebar Navigation
 menu = st.sidebar.selectbox("Navigation Menu", [
@@ -63,42 +76,46 @@ elif menu == "📦 Assets Management":
         st.dataframe(st.session_state.assets, use_container_width=True)
     else:
         st.info("ပစ္စည်းစာရင်းများ မရှိသေးပါ။")
-    
-    with st.expander("➕ Add New Equipment Asset"):
-        with st.form("asset_form"):
-            aid = st.text_input("Asset ID (ဥပမာ- AC-001)")
-            aname = st.text_input("Asset Name")
-            cat = st.text_input("Category")
-            dept = st.selectbox("Department", dept_options)
-            loc = st.text_input("Location")
-            pdate = st.date_input("Purchase Date")
-            submit = st.form_submit_button("Save Asset")
-            if submit:
-                new_row = pd.DataFrame([[aid, aname, cat, dept, loc, str(pdate), "Active"]], 
-                                       columns=st.session_state.assets.columns)
-                st.session_state.assets = pd.concat([st.session_state.assets, new_row], ignore_index=True)
-                st.success("ပစ္စည်းအသစ် အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!")
 
 elif menu == "🏛️ Fixed Assets Register":
-    st.subheader("🏛️ Fixed Assets (ပုံသေပိုင်ပစ္စည်းများ စာရင်း)")
+    st.subheader("🏛️ Fixed Assets Register (ပုံသေပိုင်ပစ္စည်းများ စာရင်း)")
     if not st.session_state.fixed_assets.empty:
         st.dataframe(st.session_state.fixed_assets, use_container_width=True)
     else:
-        st.info("ပုံသေပိုင်ပစ္စည်း စာရင်းများ မရှိသေးပါ။")
+        st.info("ယခုလက်တလော မှတ်တမ်းတင်ထားသော ပုံသေပိုင်ပစ္စည်း ဒေတာများ မရှိသေးပါ။ (အောက်ပါပုံစံမှတစ်ဆင့် အသစ်ထည့်သွင်းနိုင်ပါသည်)")
     
-    with st.expander("➕ Add New Fixed Asset"):
+    with st.expander("➕ Add New Fixed Asset Record"):
         with st.form("fixed_asset_form"):
-            fcode = st.text_input("Asset Code (ဥပမာ- FA-001)")
-            fname = st.text_input("Item Name")
-            fcat = st.text_input("Asset Category")
-            fdept = st.selectbox("Department", dept_options, key="fa_dept")
-            floc = st.text_input("Location", key="fa_loc")
-            fval = st.text_input("Original Value (ဥပမာ- 1,200,000 MMK)")
-            fcond = st.selectbox("Condition", ["Excellent", "Good", "Fair", "Needs Repair"])
+            fa_name = st.text_input("ပစ္စည်းအမည် (Asset Name)")
+            fa_loc = st.text_input("Location (တည်နေရာ)", value="HTY-20")
+            fa_dept = st.selectbox("Deparment (ဌာန)", dept_options)
+            fa_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", [
+                "ပရိဘောဂပစ္စည်းများ (FR)", 
+                "ကွန်ပျူတာနှင့်ဆက်စပ်ပစ္စည်းများ (CP)", 
+                "စက်ပစ္စည်းကိရိယာများ", 
+                "လျှပ်စစ်ပစ္စည်းများ", 
+                "အီလက်ထရောနစ်ပစ္စည်းများ", 
+                "ရုံးသုံးပစ္စည်းများ"
+            ])
+            fa_cond = st.selectbox("လက်ရှိအခြေအနေ (Current Condition)", ["ကောင်းမွန်သည် (Good)", "အသင့်အတင့်", "ပြင်ဆင်ရန်လိုအပ်သည်"])
+            fa_code = st.text_input("Fixed Asset Code")
+            fa_new_code = st.text_input("Fixed Asset NEW Code")
+            fa_photo = st.text_input("Photo Link")
+            fa_pdate = st.date_input("ဝယ်ယူသည့်နေ့ (Acquisition Date)")
+            fa_cost = st.number_input("ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)", min_value=0.0, step=10.0)
+            fa_life = st.number_input("အသုံးဝင်မည့်နှစ် (Useful Life in Years)", min_value=1, value=5)
+            fa_salvage = st.number_input("ကျန်ရှိမည့်တန်ဖိုး ($) (Salvage Value)", min_value=0.0, step=10.0)
+            
             f_submit = st.form_submit_button("Save Fixed Asset")
             if f_submit:
-                new_fa = pd.DataFrame([[fcode, fname, fcat, fdept, floc, fval, fcond]], 
-                                      columns=st.session_state.fixed_assets.columns)
+                new_fa = pd.DataFrame([[
+                    str(datetime.now()), fa_name, fa_loc, fa_dept, fa_cat, 
+                    "", "", "", "", "", "", fa_cond, fa_code, fa_new_code, fa_photo, 
+                    str(fa_pdate), fa_cost, fa_life, fa_salvage, 
+                    (fa_cost - fa_salvage) / fa_life if fa_life > 0 else 0, # Accumulated Depreciation dummy calc
+                    fa_cost, "", "", 0.0, ""
+                ]], columns=st.session_state.fixed_assets.columns)
+                
                 st.session_state.fixed_assets = pd.concat([st.session_state.fixed_assets, new_fa], ignore_index=True)
                 st.success("ပုံသေပိုင်ပစ္စည်း အောင်မြင်စွာ မှတ်တမ်းတင်ပြီးပါပြီ!")
 
@@ -112,19 +129,19 @@ elif menu == "📅 Maintenance Schedules":
     with st.expander("➕ Add New Maintenance Schedule"):
         with st.form("schedule_form"):
             sch_id = st.text_input("Schedule ID (ဥပမာ- SCH-001)")
-            asset_id_ref = st.text_input("Asset ID (သက်ဆိုင်ရာ ပစ္စည်းကုဒ်)")
-            task_desc = st.text_area("Task Description (လုပ်ဆောင်ရမည့် လုပ်ငန်းစဉ်)")
+            asset_id_ref = st.text_input("Asset ID")
+            task_desc = st.text_area("Task Description")
             freq = st.selectbox("Frequency", ["Weekly", "Monthly", "Quarterly", "Every 6 Months", "Yearly"])
             last_dt = st.date_input("Last Service Date")
             next_dt = st.date_input("Next Due Date")
             sch_dept = st.selectbox("Department", dept_options, key="sch_dept")
-            assignee = st.text_input("Assignee (တာဝန်ခံ Technician / Vendor)")
+            assignee = st.text_input("Assignee")
             sch_submit = st.form_submit_button("Save Schedule")
             if sch_submit:
                 new_sch = pd.DataFrame([[sch_id, asset_id_ref, task_desc, freq, str(last_dt), str(next_dt), sch_dept, assignee]], 
                                        columns=st.session_state.schedules.columns)
                 st.session_state.schedules = pd.concat([st.session_state.schedules, new_sch], ignore_index=True)
-                st.success("ပြုပြင်ရန် အချိန်ဇယား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!")
+                st.success("အချိန်ဇယား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!")
 
 elif menu == "📝 Maintenance Logs":
     st.subheader("📝 Maintenance Execution Logs (ပြုပြင်ပြီးစီးမှု မှတ်တမ်းများ)")
@@ -136,15 +153,15 @@ elif menu == "📝 Maintenance Logs":
     with st.expander("➕ Add New Maintenance Log"):
         with st.form("log_form"):
             log_id = st.text_input("Log ID (ဥပမာ- LOG-001)")
-            sch_id_ref = st.text_input("Schedule ID (သက်ဆိုင်ရာ အချိန်ဇယားကုဒ်)")
-            chk_date = st.date_input("Check Date (စစ်ဆေးပြုပြင်သည့်ရက်)")
+            sch_id_ref = st.text_input("Schedule ID")
+            chk_date = st.date_input("Check Date")
             tech = st.text_input("Technician Name")
-            cost = st.number_input("Cost (MMK - ကုန်ကျစရိတ်)", min_value=0, step=1000)
-            remarks = st.text_area("Remarks (မှတ်ချက်/ဆောင်ရွက်ချက်)")
+            cost = st.number_input("Cost (MMK)", min_value=0, step=1000)
+            remarks = st.text_area("Remarks")
             log_status = st.selectbox("Status", ["Completed", "Pending", "In Progress"])
             log_submit = st.form_submit_button("Save Log")
             if log_submit:
                 new_log = pd.DataFrame([[log_id, sch_id_ref, str(chk_date), tech, cost, remarks, log_status]], 
                                        columns=st.session_state.logs.columns)
                 st.session_state.logs = pd.concat([st.session_state.logs, new_log], ignore_index=True)
-                st.success("ပြုပြင်ပြီးစီးမှု မှတ်တမ်း အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!")
+                st.success("မှတ်တမ်း အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!")
