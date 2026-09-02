@@ -43,8 +43,23 @@ if 'schedules' not in st.session_state:
 if 'logs' not in st.session_state:
     st.session_state.logs = pd.DataFrame(columns=["Log_ID", "Schedule_ID", "Check_Date", "Technician", "Cost_MMK", "Remarks", "Status"])
 
-# Departments list
-dept_options = ["Office", "M&E", "IT", "Admin Asst 1", "Admin Asst 2", "Admin Executive", "စီမံရေးရာဌာန (AMD)"]
+# Updated Departments and Categories options
+dept_options = [
+    "BOD", "Marketing (MKT)", "စာရင်းစစ်ဌာန (AUD)", "စီမံရေးရာဌာန (AMD)", 
+    "ဘဏ္ဏာရေးဌာန (FND)", "ဝန်ထမ်းရေးရာဌာန (HRD)", "ဝယ်ယူရေးဌာန (PRD)", 
+    "သိုလှောင်ရေးဌာန (INV)", "အရောင်းဌာန (SED)", "သိုလှောင်ရေးဌာန (REC)", 
+    "သိုလှောင်ရေးဌာန (LNE)", "သိုလှောင်ရေးဌာန (LOD)", "သိုလှောင်ရေးဌာန (LOG)"
+]
+
+category_options = [
+    "ကွန်ပျူတာနှင့်ဆက်စပ်ပစ္စည်းများ (CP)", 
+    "စက်ပစ္စည်းကိရိယာများ (MY)", 
+    "ပရိဘောဂပစ္စည်းများ (FR)", 
+    "ရုံးသုံးပစ္စည်းများ (OU)", 
+    "ရုံးသုံးဖုန်းများ (PH)", 
+    "လျှပ်စစ်ပစ္စည်းများ (EC)", 
+    "အီလက်ထရောနစ်ပစ္စည်းများ (ET)"
+]
 
 # Sidebar Navigation
 menu = st.sidebar.selectbox("Navigation Menu", [
@@ -89,14 +104,7 @@ elif menu == "🏛️ Fixed Assets Register":
             fa_name = st.text_input("ပစ္စည်းအမည် (Asset Name)")
             fa_loc = st.text_input("Location (တည်နေရာ)", value="HTY-20")
             fa_dept = st.selectbox("Deparment (ဌာန)", dept_options)
-            fa_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", [
-                "ပရိဘောဂပစ္စည်းများ (FR)", 
-                "ကွန်ပျူတာနှင့်ဆက်စပ်ပစ္စည်းများ (CP)", 
-                "စက်ပစ္စည်းကိရိယာများ", 
-                "လျှပ်စစ်ပစ္စည်းများ", 
-                "အီလက်ထရောနစ်ပစ္စည်းများ", 
-                "ရုံးသုံးပစ္စည်းများ"
-            ])
+            fa_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", category_options)
             fa_cond = st.selectbox("လက်ရှိအခြေအနေ (Current Condition)", ["ကောင်းမွန်သည် (Good)", "အသင့်အတင့်", "ပြင်ဆင်ရန်လိုအပ်သည်"])
             fa_code = st.text_input("Fixed Asset Code")
             fa_new_code = st.text_input("Fixed Asset NEW Code")
@@ -112,7 +120,7 @@ elif menu == "🏛️ Fixed Assets Register":
                     str(datetime.now()), fa_name, fa_loc, fa_dept, fa_cat, 
                     "", "", "", "", "", "", fa_cond, fa_code, fa_new_code, fa_photo, 
                     str(fa_pdate), fa_cost, fa_life, fa_salvage, 
-                    (fa_cost - fa_salvage) / fa_life if fa_life > 0 else 0, # Accumulated Depreciation dummy calc
+                    (fa_cost - fa_salvage) / fa_life if fa_life > 0 else 0, 
                     fa_cost, "", "", 0.0, ""
                 ]], columns=st.session_state.fixed_assets.columns)
                 
