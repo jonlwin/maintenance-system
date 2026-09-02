@@ -17,8 +17,8 @@ st.markdown('<p class="main-header">🛠️ Enterprise Maintenance & Fixed Asset
 st.markdown('<p class="sub-text">ဌာနဆိုင်ရာ ပစ္စည်းကိရိယာများ၊ ပုံသေပိုင်ပစ္စည်းများ (Fixed Assets) နှင့် ပြုပြင်ထိန်းသိမ်းမှု အချိန်ဇယားများ စီမံခန့်ခွဲမှုစနစ်</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Initialize DataFrames with identical professional schema for both Equipment Assets and Fixed Assets
-asset_schema = [
+# Schema for Fixed Assets
+fixed_asset_schema = [
     'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
     'ပစ္စည်းအမျိုးအစား (Category)', 'စက်ပစ္စည်းကိရိယာများ', 'ပရိဘောဂပစ္စည်းများ', 
     'ကွန်ပျူတာနှင့် ဆက်စပ်ပစ္စည်းများ', 'လျှပ်စစ်ပစ္စည်းများ', 'အီလက်ထရောနစ်ပစ္စည်းများ', 
@@ -31,11 +31,18 @@ asset_schema = [
     'ရောင်းချ/ဖျက်သိမ်းရသည့် အကြောင်းအရင်း (Reason for Disposal)'
 ]
 
+# Schema for Equipment & Machinery Assets (Updated with Maintenance Dates)
+asset_schema = [
+    'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
+    'ပစ္စည်းအမျိုးအစား (Category)', 'လက်ရှိအခြေအနေ (Current Condition)', 'Asset Code', 
+    'ပြုပြင်မည့်နေ့ (Scheduled Maintenance Date)', 'ပြုပြင်ပြီးသည့်နေ့ (Completed Maintenance Date)'
+]
+
 if 'assets' not in st.session_state:
     st.session_state.assets = pd.DataFrame(columns=asset_schema)
 
 if 'fixed_assets' not in st.session_state:
-    st.session_state.fixed_assets = pd.DataFrame(columns=asset_schema)
+    st.session_state.fixed_assets = pd.DataFrame(columns=fixed_asset_schema)
 
 if 'schedules' not in st.session_state:
     st.session_state.schedules = pd.DataFrame(columns=["Schedule_ID", "Asset_ID", "Task_Description", "Frequency", "Last_Date", "Next_Due_Date", "Department", "Assignee"])
@@ -85,7 +92,7 @@ if menu == "📊 Dashboard":
     st.markdown("---")
     st.subheader("📦 Recent Equipment & Machinery Assets")
     if not st.session_state.assets.empty:
-        st.dataframe(st.session_state.assets[['Asset Code', 'ပစ္စည်းအမည် (Asset Name)', 'Deparment (ဌာန)', 'ပစ္စည်းအမျိုးအစား (Category)', 'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)']], use_container_width=True)
+        st.dataframe(st.session_state.assets[['Asset Code', 'ပစ္စည်းအမည် (Asset Name)', 'Deparment (ဌာန)', 'ပစ္စည်းအမျိုးအစား (Category)', 'ပြုပြင်မည့်နေ့ (Scheduled Maintenance Date)']], use_container_width=True)
     else:
         st.info("ပစ္စည်းစာရင်းများ မရှိသေးပါ။")
 
@@ -116,21 +123,14 @@ elif menu == "📦 Assets Management":
             eq_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", category_options, key="eq_cat")
             eq_cond = st.selectbox("လက်ရှိအခြေအနေ (Current Condition)", ["ကောင်းမွန်သည် (Good)", "အသင့်အတင့်", "ပြင်ဆင်ရန်လိုအပ်သည်"], key="eq_cond")
             eq_code = st.text_input("Asset Code", key="eq_code")
-            eq_new_code = st.text_input("Asset NEW Code", key="eq_new_code")
-            eq_photo = st.text_input("Photo Link", key="eq_photo")
-            eq_pdate = st.date_input("ဝယ်ယူသည့်နေ့ (Acquisition Date)", key="eq_pdate")
-            eq_cost = st.number_input("ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)", min_value=0.0, step=10.0, key="eq_cost")
-            eq_life = st.number_input("အသုံးဝင်မည့်နှစ် (Useful Life in Years)", min_value=1, value=5, key="eq_life")
-            eq_salvage = st.number_input("ကျန်ရှိမည့်တန်ဖိုး ($) (Salvage Value)", min_value=0.0, step=10.0, key="eq_salvage")
+            eq_sched_date = st.date_input("ပြုပြင်မည့်နေ့ (Scheduled Maintenance Date)", key="eq_sched_date")
+            eq_comp_date = st.date_input("ပြုပြင်ပြီးသည့်နေ့ (Completed Maintenance Date)", key="eq_comp_date")
             
             eq_submit = st.form_submit_button("Save Equipment Asset")
             if eq_submit:
                 new_eq = pd.DataFrame([[
                     str(datetime.now()), eq_name, eq_loc, eq_dept, eq_cat, 
-                    "", "", "", "", "", "", eq_cond, eq_code, eq_new_code, eq_photo, 
-                    str(eq_pdate), eq_cost, eq_life, eq_salvage, 
-                    (eq_cost - eq_salvage) / eq_life if eq_life > 0 else 0, 
-                    eq_cost, "", "", 0.0, ""
+                    eq_cond, eq_code, str(eq_sched_date), str(eq_comp_date)
                 ]], columns=st.session_state.assets.columns)
                 
                 st.session_state.assets = pd.concat([st.session_state.assets, new_eq], ignore_index=True)
@@ -151,7 +151,7 @@ elif menu == "🏛️ Fixed Assets Register":
             fa_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", category_options)
             fa_cond = st.selectbox("လက်ရှိအခြေအနေ (Current Condition)", ["ကောင်းမွန်သည် (Good)", "အသင့်အတင့်", "ပြင်ဆင်ရန်လိုအပ်သည်"])
             fa_code = st.text_input("Asset Code")
-            fa_new_code = st.text_input("Asset NEW Code")
+            fa_new_code = st.text_input("Fixed Asset NEW Code")
             fa_photo = st.text_input("Photo Link")
             fa_pdate = st.date_input("ဝယ်ယူသည့်နေ့ (Acquisition Date)")
             fa_cost = st.number_input("ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)", min_value=0.0, step=10.0)
