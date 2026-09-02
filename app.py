@@ -17,25 +17,25 @@ st.markdown('<p class="main-header">🛠️ Enterprise Maintenance & Fixed Asset
 st.markdown('<p class="sub-text">ဌာနဆိုင်ရာ ပစ္စည်းကိရိယာများ၊ ပုံသေပိုင်ပစ္စည်းများ (Fixed Assets) နှင့် ပြုပြင်ထိန်းသိမ်းမှု အချိန်ဇယားများ စီမံခန့်ခွဲမှုစနစ်</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Initialize Empty DataFrames with exact columns from HTY-20.xlsx
+# Initialize DataFrames with identical professional schema for both Equipment Assets and Fixed Assets
+asset_schema = [
+    'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
+    'ပစ္စည်းအမျိုးအစား (Category)', 'စက်ပစ္စည်းကိရိယာများ', 'ပရိဘောဂပစ္စည်းများ', 
+    'ကွန်ပျူတာနှင့် ဆက်စပ်ပစ္စည်းများ', 'လျှပ်စစ်ပစ္စည်းများ', 'အီလက်ထရောနစ်ပစ္စည်းများ', 
+    'ရုံးသုံးပစ္စည်းများ', 'လက်ရှိအခြေအနေ (Current Condition)', 'Asset Code', 
+    'Asset NEW Code', 'photo', 'ဝယ်ယူသည့်နေ့ (Acquisition Date)', 
+    'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)', 'အသုံးဝင်မည့်နှစ် (Useful Life in Years)', 
+    'ကျန်ရှိမည့်တန်ဖိုး ($) (Salvage Value)', 'စုစုပေါင်း တန်ဖိုးလျော့ကျမှု ($) (Accumulated Depreciation)', 
+    'လက်ရှိတန်ဖိုး ($) (Net Book Value)', 'နောက်ဆုံးပြုပြင်ခဲ့သည့်နေ့ (Last Maintenance Date)', 
+    'ရောင်းချ/ဖျက်သိမ်းသည့်နေ့ (Disposal Date)', 'ရောင်းချ/ဖျက်သိမ်းမှု တန်ဖိုး ($) (Disposal Value)', 
+    'ရောင်းချ/ဖျက်သိမ်းရသည့် အကြောင်းအရင်း (Reason for Disposal)'
+]
+
 if 'assets' not in st.session_state:
-    st.session_state.assets = pd.DataFrame(columns=[
-        "Asset_ID", "Asset_Name", "Category", "Department", "Location", "Purchase_Date", "Status"
-    ])
+    st.session_state.assets = pd.DataFrame(columns=asset_schema)
 
 if 'fixed_assets' not in st.session_state:
-    st.session_state.fixed_assets = pd.DataFrame(columns=[
-        'Timestamp', 'ပစ္စည်းအမည် (Asset Name)', 'Location', 'Deparment (ဌာန)', 
-        'ပစ္စည်းအမျိုးအစား (Category)', 'စက်ပစ္စည်းကိရိယာများ', 'ပရိဘောဂပစ္စည်းများ', 
-        'ကွန်ပျူတာနှင့် ဆက်စပ်ပစ္စည်းများ', 'လျှပ်စစ်ပစ္စည်းများ', 'အီလက်ထရောနစ်ပစ္စည်းများ', 
-        'ရုံးသုံးပစ္စည်းများ', 'လက်ရှိအခြေအနေ (Current Condition)', 'Fixed Asset Code', 
-        'Fixed Asset NEW Code', 'photo', 'ဝယ်ယူသည့်နေ့ (Acquisition Date) ', 
-        'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)', 'အသုံးဝင်မည့်နှစ် (Useful Life in Years)', 
-        'ကျန်ရှိမည့်တန်ဖိုး ($) (Salvage Value)', 'စုစုပေါင်း တန်ဖိုးလျော့ကျမှု ($) (Accumulated Depreciation) ', 
-        'လက်ရှိတန်ဖိုး ($) (Net Book Value)', 'နောက်ဆုံးပြုပြင်ခဲ့သည့်နေ့ (Last Maintenance Date)', 
-        'ရောင်းချ/ဖျက်သိမ်းသည့်နေ့ (Disposal Date)', 'ရောင်းချ/ဖျက်သိမ်းမှု တန်ဖိုး ($) (Disposal Value)', 
-        'ရောင်းချ/ဖျက်သိမ်းရသည့် အကြောင်းအရင်း (Reason for Disposal)'
-    ])
+    st.session_state.fixed_assets = pd.DataFrame(columns=asset_schema)
 
 if 'schedules' not in st.session_state:
     st.session_state.schedules = pd.DataFrame(columns=["Schedule_ID", "Asset_ID", "Task_Description", "Frequency", "Last_Date", "Next_Due_Date", "Department", "Assignee"])
@@ -72,13 +72,29 @@ menu = st.sidebar.selectbox("Navigation Menu", [
 
 if menu == "📊 Dashboard":
     st.subheader("📊 Executive Summary Dashboard")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Equipment Assets", len(st.session_state.assets))
-    col2.metric("Fixed Assets Registered", len(st.session_state.fixed_assets))
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Equipment Assets", len(st.session_state.assets))
+    col2.metric("Fixed Assets", len(st.session_state.fixed_assets))
     col3.metric("Active Schedules", len(st.session_state.schedules))
     col4.metric("Completed Logs", len(st.session_state.logs))
     
+    total_cost = st.session_state.logs['Cost_MMK'].sum() if not st.session_state.logs.empty else 0
+    col5.metric("Total Maint. Cost (MMK)", f"{total_cost:,} MMK")
+    
     st.markdown("---")
+    st.subheader("📦 Recent Equipment & Machinery Assets")
+    if not st.session_state.assets.empty:
+        st.dataframe(st.session_state.assets[['Asset Code', 'ပစ္စည်းအမည် (Asset Name)', 'Deparment (ဌာန)', 'ပစ္စည်းအမျိုးအစား (Category)', 'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)']], use_container_width=True)
+    else:
+        st.info("ပစ္စည်းစာရင်းများ မရှိသေးပါ။")
+
+    st.subheader("🏛️ Recent Fixed Assets Summary")
+    if not st.session_state.fixed_assets.empty:
+        st.dataframe(st.session_state.fixed_assets[['Asset Code', 'ပစ္စည်းအမည် (Asset Name)', 'Deparment (ဌာန)', 'ပစ္စည်းအမျိုးအစား (Category)', 'ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)']], use_container_width=True)
+    else:
+        st.info("ပုံသေပိုင်ပစ္စည်း မှတ်တမ်းများ မရှိသေးပါ။")
+        
     st.subheader("⏰ Upcoming Maintenance Schedules")
     if not st.session_state.schedules.empty:
         st.dataframe(st.session_state.schedules, use_container_width=True)
@@ -86,18 +102,46 @@ if menu == "📊 Dashboard":
         st.info("ပြုပြင်ရန် အချိန်ဇယားများ မရှိသေးပါ။")
 
 elif menu == "📦 Assets Management":
-    st.subheader("📦 Equipment & Machinery Assets")
+    st.subheader("📦 Equipment & Machinery Assets Management")
     if not st.session_state.assets.empty:
         st.dataframe(st.session_state.assets, use_container_width=True)
     else:
-        st.info("ပစ္စည်းစာရင်းများ မရှိသေးပါ။")
+        st.info("စက်ပစ္စည်းကိရိယာ မှတ်တမ်းများ မရှိသေးပါ။ (အောက်ပါပုံစံမှတစ်ဆင့် အသစ်ထည့်သွင်းနိုင်ပါသည်)")
+    
+    with st.expander("➕ Add New Equipment & Machinery Asset"):
+        with st.form("equipment_asset_form"):
+            eq_name = st.text_input("ပစ္စည်းအမည် (Asset Name)")
+            eq_loc = st.text_input("Location (တည်နေရာ)", value="HTY-20")
+            eq_dept = st.selectbox("Deparment (ဌာန)", dept_options, key="eq_dept")
+            eq_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", category_options, key="eq_cat")
+            eq_cond = st.selectbox("လက်ရှိအခြေအနေ (Current Condition)", ["ကောင်းမွန်သည် (Good)", "အသင့်အတင့်", "ပြင်ဆင်ရန်လိုအပ်သည်"], key="eq_cond")
+            eq_code = st.text_input("Asset Code", key="eq_code")
+            eq_new_code = st.text_input("Asset NEW Code", key="eq_new_code")
+            eq_photo = st.text_input("Photo Link", key="eq_photo")
+            eq_pdate = st.date_input("ဝယ်ယူသည့်နေ့ (Acquisition Date)", key="eq_pdate")
+            eq_cost = st.number_input("ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)", min_value=0.0, step=10.0, key="eq_cost")
+            eq_life = st.number_input("အသုံးဝင်မည့်နှစ် (Useful Life in Years)", min_value=1, value=5, key="eq_life")
+            eq_salvage = st.number_input("ကျန်ရှိမည့်တန်ဖိုး ($) (Salvage Value)", min_value=0.0, step=10.0, key="eq_salvage")
+            
+            eq_submit = st.form_submit_button("Save Equipment Asset")
+            if eq_submit:
+                new_eq = pd.DataFrame([[
+                    str(datetime.now()), eq_name, eq_loc, eq_dept, eq_cat, 
+                    "", "", "", "", "", "", eq_cond, eq_code, eq_new_code, eq_photo, 
+                    str(eq_pdate), eq_cost, eq_life, eq_salvage, 
+                    (eq_cost - eq_salvage) / eq_life if eq_life > 0 else 0, 
+                    eq_cost, "", "", 0.0, ""
+                ]], columns=st.session_state.assets.columns)
+                
+                st.session_state.assets = pd.concat([st.session_state.assets, new_eq], ignore_index=True)
+                st.success("စက်ပစ္စည်းကိရိယာ အောင်မြင်စွာ မှတ်တမ်းတင်ပြီးပါပြီ!")
 
 elif menu == "🏛️ Fixed Assets Register":
     st.subheader("🏛️ Fixed Assets Register (ပုံသေပိုင်ပစ္စည်းများ စာရင်း)")
     if not st.session_state.fixed_assets.empty:
         st.dataframe(st.session_state.fixed_assets, use_container_width=True)
     else:
-        st.info("ယခုလက်တလော မှတ်တမ်းတင်ထားသော ပုံသေပိုင်ပစ္စည်း ဒေတာများ မရှိသေးပါ။ (အောက်ပါပုံစံမှတစ်ဆင့် အသစ်ထည့်သွင်းနိုင်ပါသည်)")
+        st.info("ယခုလက်တလော မှတ်တမ်းတင်ထားသော ပုံသေပိုင်ပစ္စည်း ဒေတာများ မရှိသေးပါ။")
     
     with st.expander("➕ Add New Fixed Asset Record"):
         with st.form("fixed_asset_form"):
@@ -106,8 +150,8 @@ elif menu == "🏛️ Fixed Assets Register":
             fa_dept = st.selectbox("Deparment (ဌာန)", dept_options)
             fa_cat = st.selectbox("ပစ္စည်းအမျိုးအစား (Category)", category_options)
             fa_cond = st.selectbox("လက်ရှိအခြေအနေ (Current Condition)", ["ကောင်းမွန်သည် (Good)", "အသင့်အတင့်", "ပြင်ဆင်ရန်လိုအပ်သည်"])
-            fa_code = st.text_input("Fixed Asset Code")
-            fa_new_code = st.text_input("Fixed Asset NEW Code")
+            fa_code = st.text_input("Asset Code")
+            fa_new_code = st.text_input("Asset NEW Code")
             fa_photo = st.text_input("Photo Link")
             fa_pdate = st.date_input("ဝယ်ယူသည့်နေ့ (Acquisition Date)")
             fa_cost = st.number_input("ဝယ်ယူဈေးနှုန်း ($) (Acquisition Cost)", min_value=0.0, step=10.0)
