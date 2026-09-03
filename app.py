@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Page Configuration
 st.set_page_config(page_title="Enterprise Maintenance & Fixed Asset Management System", page_icon="🛠️", layout="wide")
@@ -15,16 +17,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🛠️ Enterprise Maintenance & Fixed Asset Management System</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-text">ဌာနဆိုင်ရာ ပစ္စည်းကိရိယာများ၊ ပုံသေပိုင်ပစ္စည်းများ (Fixed Assets) နှင့် ပြုပြင်ထိန်းသိမ်းမှု အချိန်ဇယားများ စီမံခန့်ခွဲမှုစနစ်</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-text">ဌာနဆိုင်ရာ ပစ္စည်းကိရိယာများ၊ ပုံသေပိုင်ပစ္စည်းများ (Fixed Assets) နှင့် ပြုပြင်ထိန်းသိမ်းမှု အချိန်ဇယားများ စီမံခန့်ခွဲမှုစနစ် (Google Sheets Connected)</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Helper function to convert dataframe to Excel for download
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Report')
-    processed_data = output.getvalue()
-    return processed_data
+# Google Sheets Connection Setup
+@st.cache_resource
+def init_google_sheets():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    return client
+
+try:
+    client = init_google_sheets()
+    db = client.open("Maintenance_DB")
+except Exception as e:
+    st.error(f"Google Sheet ချိတ်ဆက်ရာတွင် အမှားရှိနေပါသည်။ 'Maintenance_DB' နာမည်ဖြင့် Google Sheet ဖန်တီးပြီး Service Account သို့ Share ပေးထားခြင်း ရှိမရှိ စစ်ဆေးပါ။ Error: {e}")
+    st.stop()
 
 # Schema Definitions
 fixed_asset_schema = [
@@ -46,17 +56,52 @@ asset_schema = [
     'ပြုပြင်မည့်နေ့ (Scheduled Maintenance Date)', 'ပြုပြင်ပြီးသည့်နေ့ (Completed Maintenance Date)'
 ]
 
+schedule_schema = ["Schedule_ID", "Asset_ID", "Task_Description", "Frequency", "Last_Date", "Next_Due_Date", "Department", "Assignee"]
+log_schema = ["Log_ID", "Schedule_ID", "Check_Date", "Technician", "Cost_MMK", "Remarks", "Status"]
+
+# Load Data from Google Sheets
+def load_sheet_data(sheet_name, schema):
+    try:
+        worksheet = db.worksheet(sheet_name)
+        data = worksheet.get_all_records()
+        if data:
+            return pd.DataFrame(data)
+        else:
+            df = pd.DataFrame(columns=schema)
+            return df
+    except Exception:
+        return pd.DataFrame(columns=schema)
+
+def save_row_to_sheet(sheet_name, row_df, schema):
+    try:
+        worksheet = db.worksheet(sheet_name)
+        # If worksheet is empty, write headers first
+        existing_data = worksheet.get_all_values()
+        if not existing_data:
+            worksheet.append_row(schema)
+        worksheet.append_row(row_df.values.tolist()[0])
+    except Exception as e:
+        st.error(f"Google Sheet သို့ ဒေတာသိမ်းဆည်းရာတွင် အမှားဖြစ်ပေါ်သည်: {e}")
+
+# Initialize Session State from Google Sheets
 if 'assets' not in st.session_state:
-    st.session_state.assets = pd.DataFrame(columns=asset_schema)
+    st.session_state.assets = load_sheet_data('assets', asset_schema)
 
 if 'fixed_assets' not in st.session_state:
-    st.session_state.fixed_assets = pd.DataFrame(columns=fixed_asset_schema)
+    st.session_state.fixed_assets = load_sheet_data('fixed_assets', fixed_asset_schema)
 
 if 'schedules' not in st.session_state:
-    st.session_state.schedules = pd.DataFrame(columns=["Schedule_ID", "Asset_ID", "Task_Description", "Frequency", "Last_Date", "Next_Due_Date", "Department", "Assignee"])
+    st.session_state.schedules = load_sheet_data('schedules', schedule_schema)
 
 if 'logs' not in st.session_state:
-    st.session_state.logs = pd.DataFrame(columns=["Log_ID", "Schedule_ID", "Check_Date", "Technician", "Cost_MMK", "Remarks", "Status"])
+    st.session_state.logs = load_sheet_data('logs', log_schema)
+
+# Helper function for Excel download
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Report')
+    return output.getvalue()
 
 # Departments and Categories options
 dept_options = [
@@ -115,7 +160,6 @@ elif menu == "📦 Assets Management":
     st.subheader("📦 Equipment & Machinery Assets Management")
     if not st.session_state.assets.empty:
         st.dataframe(st.session_state.assets, use_container_width=True)
-        # Download Excel Button for Assets
         excel_data = to_excel(st.session_state.assets)
         st.download_button(label="📥 Download Equipment Assets as Excel", data=excel_data, file_name="equipment_assets_report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
@@ -139,14 +183,14 @@ elif menu == "📦 Assets Management":
                     eq_cond, eq_code, str(eq_sched_date), str(eq_comp_date)
                 ]], columns=st.session_state.assets.columns)
                 
+                save_row_to_sheet('assets', new_eq, asset_schema)
                 st.session_state.assets = pd.concat([st.session_state.assets, new_eq], ignore_index=True)
-                st.success("စက်ပစ္စည်းကိရိယာ အောင်မြင်စွာ မှတ်တမ်းတင်ပြီးပါပြီ!")
+                st.success("စက်ပစ္စည်းကိရိယာ အောင်မြင်စွာ မှတ်တမ်းတင်ပြီး Google Sheet သို့ သိမ်းဆည်းပြီးပါပြီ!")
 
 elif menu == "🏛️ Fixed Assets Register":
     st.subheader("🏛️ Fixed Assets Register (ပုံသေပိုင်ပစ္စည်းများ စာရင်း)")
     if not st.session_state.fixed_assets.empty:
         st.dataframe(st.session_state.fixed_assets, use_container_width=True)
-        # Download Excel Button for Fixed Assets
         excel_data = to_excel(st.session_state.fixed_assets)
         st.download_button(label="📥 Download Fixed Assets as Excel", data=excel_data, file_name="fixed_assets_report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
@@ -177,8 +221,9 @@ elif menu == "🏛️ Fixed Assets Register":
                     fa_cost, "", "", 0.0, ""
                 ]], columns=st.session_state.fixed_assets.columns)
                 
+                save_row_to_sheet('fixed_assets', new_fa, fixed_asset_schema)
                 st.session_state.fixed_assets = pd.concat([st.session_state.fixed_assets, new_fa], ignore_index=True)
-                st.success("ပုံသေပိုင်ပစ္စည်း အောင်မြင်စွာ မှတ်တမ်းတင်ပြီးပါပြီ!")
+                st.success("ပုံသေပိုင်ပစ္စည်း အောင်မြင်စွာ မှတ်တမ်းတင်ပြီး Google Sheet သို့ သိမ်းဆည်းပြီးပါပြီ!")
 
 elif menu == "📅 Maintenance Schedules":
     st.subheader("📅 Maintenance Schedules (ပြုပြင်ရန် အချိန်ဇယားများ)")
@@ -203,8 +248,9 @@ elif menu == "📅 Maintenance Schedules":
             if sch_submit:
                 new_sch = pd.DataFrame([[sch_id, asset_id_ref, task_desc, freq, str(last_dt), str(next_dt), sch_dept, assignee]], 
                                        columns=st.session_state.schedules.columns)
+                save_row_to_sheet('schedules', new_sch, schedule_schema)
                 st.session_state.schedules = pd.concat([st.session_state.schedules, new_sch], ignore_index=True)
-                st.success("အချိန်ဇယား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!")
+                st.success("အချိန်ဇယား အောင်မြင်စွာ ထည့်သွင်းပြီး Google Sheet သို့ သိမ်းဆည်းပြီးပါပြီ!")
 
 elif menu == "📝 Maintenance Logs":
     st.subheader("📝 Maintenance Execution Logs (ပြုပြင်ပြီးစီးမှု မှတ်တမ်းများ)")
@@ -228,13 +274,12 @@ elif menu == "📝 Maintenance Logs":
             if log_submit:
                 new_log = pd.DataFrame([[log_id, sch_id_ref, str(chk_date), tech, cost, remarks, log_status]], 
                                        columns=st.session_state.logs.columns)
+                save_row_to_sheet('logs', new_log, log_schema)
                 st.session_state.logs = pd.concat([st.session_state.logs, new_log], ignore_index=True)
-                st.success("မှတ်တမ်း အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!")
+                st.success("မှတ်တမ်း အောင်မြင်စွာ သိမ်းဆည်းပြီး Google Sheet သို့ သိမ်းဆည်းပြီးပါပြီ!")
 
 elif menu == "📥 Export Reports (Excel)":
     st.subheader("📥 Comprehensive Report Export (Excel)")
-    st.markdown("စနစ်အတွင်းရှိ မှတ်တမ်းအားလုံးကို ဌာနအလိုက် သို့မဟုတ် အချက်အလက်အလိုက် Excel Report အဖြစ် Download ဆွဲထုတ်နိုင်ပါသည်။")
-    
     report_type = st.selectbox("Select Report Type", ["Fixed Assets Register", "Equipment Assets", "Maintenance Schedules", "Maintenance Logs"])
     
     if report_type == "Fixed Assets Register":
